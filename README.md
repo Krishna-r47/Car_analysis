@@ -21,8 +21,7 @@ To perform structured EDA on a car dataset to understand:
   - Handled missing values using `mice` where appropriate
 
 - **Exploratory Data Analysis**
-  - Bar plots to show most common car companies
-  - Pie charts and bar charts for fuel type distribution
+  - Bar plots to show most common car companies and fuel type distribution
   - Boxplots for price comparisons across brands
   - Scatter plots to explore relationships between engine size and price
 
