@@ -29,7 +29,7 @@ To perform structured EDA and pre-processing on a car dataset to understand:
 - **Few Key Insights**
   - Cars with higher fuel efficiency will have a higher price bracket
   - Cars with higher mileage tend to have lower sale prices, but some high-mileage cars continue to cost more
-  - fuel efficiencies of **Audi** and **Toyota** are the highest among all manufacturers.
+  - Fuel efficiencies of **Audi** and **Toyota** are the highest among all manufacturers.
 
 
 
