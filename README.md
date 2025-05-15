@@ -10,7 +10,7 @@ To perform structured EDA and pre-processing on a car dataset to understand:
 - Which brands dominate the dataset
 - How fuel types are distributed across different cars
 - How pricing varies across brands
-- Influence of car age with respect to pricing
+- Variation in pricing with respect to car age
 
 
 
