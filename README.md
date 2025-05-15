@@ -6,14 +6,15 @@ This project presents an exploratory analysis of a car dataset using R. The goal
 
 ##  Objective
 
-To perform structured EDA on a car dataset to understand:
+To perform structured EDA and pre-processing on a car dataset to understand:
 - Which brands dominate the dataset
-- How fuel types are distributed
-- How pricing varies across brands and engine sizes
+- How fuel types are distributed across different cars
+- How pricing varies across brands
+- Influence of car age with respect to pricing
 
 
 
-##  Steps Performed
+## Some of the steps performed
 
 - **Data Cleaning**
   - Split the `Car_Name` column into `Car_Company` and `Car_Model` for better granularity
@@ -21,15 +22,14 @@ To perform structured EDA on a car dataset to understand:
   - Handled missing values using `mice` where appropriate
 
 - **Exploratory Data Analysis**
-  - Bar plots to show most common car companies and fuel type distribution
-  - Boxplots for price comparisons across brands
-  - Scatter plots to explore relationships between engine size and price
+  - Bar plots to show most frequently sold cars
+  - Boxplots for fuel efficiency comparisons across brands
+  - Scatter plots to explore relationships between different variables
 
-- **Key Insights**
-  - Petrol cars dominate the dataset
-  - **Maruti**, **Hyundai**, and **Honda** are the most frequent brands
-  - High-end brands like **Audi** and **BMW** had noticeable outlier prices
-  - Engine capacity shows some correlation with price but is not the only driver
+- **Few Key Insights**
+  - Cars with higher fuel efficiency will have a higher price bracket
+  - Cars with higher mileage tend to have lower sale prices, but some high-mileage cars continue to cost more
+  - fuel efficiencies of **Audi** and **Toyota** are the highest among all manufacturers.
 
 
 
