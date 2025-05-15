@@ -1,0 +1,579 @@
+---
+title: "Car Data Analysis"
+author: "By Krishna Rao Ramesh"
+format:
+  pdf:
+    documentclass: article
+    geometry: margin=1in
+    fontsize: 12pt
+    toc: true
+    toc-depth: 2
+    number-sections: true
+editor: visual
+---
+
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,    # hides code
+  message = FALSE, # hides messages
+  warning = FALSE  # hides warnings
+)
+
+# Installing new packages
+install.packages(c("GGally", "mice", "tinytex", "kableExtra" ), repos = "https://cloud.r-project.org")
+
+# Loading pre-existing packages
+library(tidyverse)
+library(lubridate)
+library(knitr)
+library(GGally)
+library(mice)
+library(patchwork)
+library(readr)
+library(kableExtra)
+```
+
+```{r}
+# Assigning the dataset to a variable
+car_data <- read_csv("data.csv")
+View(car_data)
+
+# Setting a thematic preset for all visualizations
+theme_set(
+    theme_classic() +                         
+        theme(
+            plot.title = element_text(
+                hjust = 0.5,                        
+                size = 14,                          
+                face = "bold"                       
+            ),
+            plot.subtitle = element_text(
+                hjust = 0.5,                        
+                size = 12                           
+            ),
+            axis.title = element_text(
+                size = 12                           
+            )
+        )
+)
+```
+
+# [Problem Statement]{.underline}
+
+To explore the dataset provided by performing Exploratory Data Analysis (EDA), Data cleaning, and Feature Engineering to discern actionable insights for the company. This will involve filling missing values, replacing outliers, and generating a number of visualizations for understanding each variable, which can be further used to provide recommendations for improving the company's functioning.
+
+# [Solution Statement]{.underline}
+
+A variety of packages from R would be leveraged to carry out data cleaning, feature engineering, and EDA visualizations. The following steps will be taken;
+
+-   **Pre-Cleaning Visualization** to get a glimpse of the distribution of data and inconsistencies such as extreme values, formatting, missing values, etc.
+
+-   **Data cleaning** to get rid of all the aforementioned data inconsistencies.
+
+-   **Feature Engineering** to create new variables for deriving additional insight.
+
+-   **Exploratory Data Analysis (EDA)** to identify KPI's, patterns, and trends in data. Visualizations will point out interesting occurences for each feature present in the dataset.
+
+# [Data Preprocessing & Exploratory Analysis]{.underline}
+
+## Section A: Visualizing data pre-cleaning to understand type of distribution
+
+Before cleaning our data, let us explore unclean data to understand its distribution and identify insufficiencies that can deter effective analysis. Each of the 4 numerical columns contain **50 missing values each**.
+
+### Boxplots for numerical columns
+
+The boxplots represent the data distribution for each of the 4 numerical columns. The variables have moderate variability in data with no pronounced spread, except for an outlier in the "Sale Price" feature. This might denote an unusually low priced car.
+
+```{r fig.width=6, fig.height=4}
+B1 <- ggplot(car_data, aes(y = Mileage)) +
+    geom_boxplot(fill = "lightblue") +
+    labs(title = "Mileage") +
+    ylab(NULL)
+
+B2 <- ggplot(car_data, aes(y = PrestigeRating)) +
+    geom_boxplot(fill = "gold") +
+    labs(title = "Prestige Rating") +
+    ylab(NULL)
+
+B3 <- ggplot(car_data, aes(y = FuelEfficiency)) +
+    geom_boxplot(fill = "lightgreen") +
+    labs(title = "Fuel Efficiency") +
+    ylab(NULL)
+
+B4 <- ggplot(car_data, aes(y = SalePrice)) +
+    geom_boxplot(fill = "coral") +
+    labs(title = "Sale Price") +
+    ylab(NULL)
+
+D1 <- B1 + B2 + B3 + B4
+print(D1)
+```
+
+### Scatter plot - Mileage v/s SalePrice
+
+The plot reveals a downward trend wherein the price of cars seems to be decreasing with an increase in mileage. The presence of extreme points, especially at the top of the plot, can potentially be outliers.
+
+```{r}
+D2 <- ggplot(car_data, aes(x = Mileage, y = SalePrice)) +
+    geom_point(color = "darkblue", alpha = 0.5) +
+    labs(
+        title = "Mileage v/s Sale Price",
+        subtitle = "Pre-Cleaning",
+        x = "Mileage",
+        y = "Sale Price (Units)"
+    )
+print(D2)
+```
+
+### Histograms for SalePrice and Mileage
+
+The Sale Prices of cars are normally distributed. Different Cars tend to have different sets of mileage, with the maximum concentration around the 85,000 to 135,000 mark.
+
+```{r fig.width=5, fig.height=3}
+D3 <- ggplot(car_data, aes(x = SalePrice)) +
+    geom_histogram(
+        binwidth = 5000,
+        fill     = "coral",
+        color    = "black",
+        alpha    = 0.7
+    ) +
+    labs(
+        title = "Distribution of Sale Price",
+        x     = "Sale Price (Units)",
+        y     = "Frequency"
+    )
+print(D3)
+
+D4 <- ggplot(car_data, aes(x = Mileage)) +
+    geom_histogram(
+        binwidth = 5000,
+        fill     = "darkblue",
+        color    = "black",
+        alpha    = 0.7
+    ) +
+    labs(
+        title = "Distribution of Mileage",
+        x     = "Mileage (Units)",
+        y     = "Frequency"
+    )
+print(D4) 
+```
+
+## Section B: Data Cleaning
+
+a\. Cleaned the 'Makemodel' column and split it into Manufacturer and Model. Special characters were removed from the column and regular expression was used to replace different combinations of incorrect spellings (like "aud" or "au" to "Audi")
+
+```{r}
+# Removing special characters, extra space and other inconsistencies from MakeModel.
+car_data <- car_data %>%
+    mutate(
+        MakeModel    = str_replace_all(MakeModel, '[^[:alnum:]]', ' '),
+        MakeModel    = str_squish(MakeModel),
+        MakeModel    = str_replace_all(MakeModel, ' +', ' '),
+        Manufacturer = word(MakeModel, 1),
+        Model        = word(MakeModel, 2, -1)
+    ) %>%
+    
+# Converting all instances of inconsistencies to its appropriate Manufacturer names using regex.
+    mutate(
+        Manufacturer = case_when(
+            str_detect(Manufacturer, regex("aud|au", ignore_case = TRUE)) ~ "Audi",
+            str_detect(Manufacturer, regex("hond|hon|ho", ignore_case = TRUE)) ~ "Honda",
+            str_detect(Manufacturer, regex("chevr|chev", ignore_case = TRUE)) ~ "Chevrolet",
+            str_detect(Manufacturer, regex("tesl|tes|te", ignore_case = TRUE)) ~ "Tesla",
+            str_detect(Manufacturer, regex("toy|to", ignore_case = TRUE)) ~ "Toyota",
+            str_detect(Manufacturer, regex("bmw", ignore_case = TRUE)) ~ "BMW",
+            str_detect(Manufacturer, regex("ford", ignore_case = TRUE)) ~ "Ford",
+            str_detect(Manufacturer, regex("mercedes", ignore_case = TRUE)) ~ "Mercedes",
+            TRUE ~ str_to_title(Manufacturer)
+        )
+    ) %>%
+
+# Converting Manufacturer into factor data type.   
+    mutate(
+        Manufacturer = as.factor(Manufacturer)
+    ) %>%
+    select(Manufacturer, Model, everything(), -MakeModel)
+```
+
+b\. Imputed missing values using **MICE (Multivariate Imputation by Chained Equations)**. MICE was chosen since it takes relationships or correlations between variables into account before imputing missing values. This can lead to better analysis.
+
+```{r}
+# Selecting only numerical columns for imputation.
+features <- c("SalePrice", "Mileage", "FuelEfficiency", "PrestigeRating", "YearOfManufacture", "Manufacturer")
+data_subset <- car_data %>% 
+    select(all_of(features))
+
+# Using the predictive mean matching (PMM) method since it picks values within range of other observed values while also taking correlation into account.
+set.seed(123) 
+imputed_data <- mice(
+    data_subset, 
+    m = 5, 
+    method = "pmm", 
+    maxit = 50, 
+    printFlag = FALSE
+)
+completed_data <- complete(imputed_data)
+
+# Replacing original columns with fully-filled columns. 
+car_data <- car_data %>%
+    select(-SalePrice, -Mileage, -FuelEfficiency, -PrestigeRating) %>%
+    bind_cols(completed_data %>% select(SalePrice, Mileage, FuelEfficiency, PrestigeRating))
+```
+
+c\. Removing incorrect data entries and removing duplicates, such as negative values. Years out of range (2000-2024) are also removed from dataset.
+
+```{r}
+car_data <- car_data %>%
+    filter(YearOfManufacture >= 2000 & YearOfManufacture <= 2024) %>%
+    filter(Mileage >= 0 & FuelEfficiency >= 0 & SalePrice >= 0) %>%
+    distinct()
+```
+
+d\. Removing Outliers by calculating the **Mahalanobis distance** between datapoints. Similar to MICE, Mahalanobis also takes the relationship between variables into account before judging outliers. This can be useful since a car with an unusually high mileage count could be deemed an outlier unless the age of the car is also taken into account.
+
+```{r}
+# Selecting only numerical columns for imputation.
+numeric_cols <- car_data %>%
+    select(SalePrice, Mileage, FuelEfficiency, PrestigeRating)
+
+# Calculating Mahalanobis distance between observations
+maha_dist <- mahalanobis(
+    x    = numeric_cols,
+    center = colMeans(numeric_cols),
+    cov   = cov(numeric_cols)
+)
+
+# Setting a threshold limit beyond which observations would be regarded as outliers.
+threshold <- qchisq(0.975, df = ncol(numeric_cols))
+
+car_data <- car_data[maha_dist < threshold, ]
+
+# Displaying first 10 rows. 
+kable(head(car_data, 10), caption = "Cleaned Car Data (First 10 Rows)") %>%
+  kable_styling(font_size = 8) 
+```
+
+## Section C: Feature Engineering
+
+Newer columns derived from primary data are added to dataset to extract additional insight.
+
+\(I\) **Car_age**: To identify age of car.
+
+\(II\) **FuelEfficiency_Category**: Grouping fuel efficiencies of vehicles into different classes of Low, medium and high.
+
+\(III\) **Price_Category**: Grouping SalePrice of vehicles into different classes.
+
+\(IV\) **Mileage_Category**: Grouping Mileage of vehicles into different classes.
+
+\(V\) **PricePerMile**: A column to indicate money spent for each mile driven.
+
+\(VI\) **EfficiencyPrice_Ratio**: To measure the cost-effectiveness of a car's fuel efficiency.
+
+```{r}
+# A new column to identify age of car
+car_data_final <- car_data %>%
+  mutate(Car_Age = 2025 - YearOfManufacture) %>%
+  
+  # Grouping fuel efficiencies of vehicles into different classes
+  mutate(FuelEfficiency_Category = case_when(
+    FuelEfficiency < 25 ~ "Low",
+    FuelEfficiency < 45 ~ "Medium",
+    TRUE                ~ "High"
+  )) %>%
+  
+  # Grouping SalePrice of vehicles into different classes
+  mutate(Price_Category = case_when(
+    SalePrice < 12000 ~ "Low",
+    SalePrice < 22000 ~ "Medium",
+    TRUE              ~ "High"
+  )) %>%
+  
+  # Similarly for Mileage
+  mutate(Mileage_Category = case_when(
+    Mileage < 25000 ~ "Low",
+    Mileage < 80000 ~ "Medium",
+    TRUE             ~ "High"
+  )) %>%
+  
+  # A column to indicate money spent for each mile driven
+  mutate(PricePerMile = round(SalePrice / Mileage, 2)) %>%
+    
+  # Fuel Efficiency - Price Ratio
+  mutate(
+     EfficiencyPrice_Ratio = round(
+         (FuelEfficiency / SalePrice - min(FuelEfficiency / SalePrice)) / 
+            (max(FuelEfficiency / SalePrice) - min(FuelEfficiency / SalePrice)), 2)
+  )
+
+# Displaying only Feature Engineered columns.  
+kable(
+  car_data_final %>%
+    select(Car_Age, FuelEfficiency_Category, Price_Category, Mileage_Category, PricePerMile, EfficiencyPrice_Ratio ) %>%
+    head(10),
+  caption = "Feature Engineered Columns (First 10 Rows)"
+) %>%
+  kable_styling(font_size = 8) 
+
+```
+
+## Section D: EDA Visualizations post-cleaning
+
+### Understanding the correlation between different numerical features
+
+Sale Price is moderately correlated with Fuel Efficiency and Prestige Rating. None of other correlations are significant.
+
+```{r}
+corr_matrix <- car_data_final %>%
+    select(SalePrice, Mileage, FuelEfficiency, PrestigeRating) %>%
+    cor()
+
+# For displaying table in PDF
+kable(corr_matrix, digits = 2, caption = "Correlation Matrix of Numeric Variables")
+```
+
+### Bar Chart of Total Sales by Manufacturer
+
+The bar chart shows the total number of cars sold by each manufacturer. Ford is leading the race with 177 cars followed by Honda with 173 sold.
+
+```{r fig.width=5, fig.height=3}
+D5 <- car_data_final %>%
+  group_by(Manufacturer) %>%
+  summarise(Total_Sales = n(), .groups = "drop") %>%
+  ggplot(aes(
+    x     = reorder(Manufacturer, Total_Sales),
+    y     = Total_Sales,
+    fill  = Manufacturer
+  )) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Total_Sales), vjust = 1.5, color = "white", size = 3.5) +  #For labelling inside bar graph
+  coord_cartesian(ylim = c(0, 200)) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(
+    title = "Sales by Manufacturer",
+    x     = "Manufacturer",
+    y     = "Total Cars Sold"
+  ) +
+  theme(
+    axis.text.x   = element_text(angle = 90, hjust = 1),
+    legend.position = "none"
+  )
+
+print(D5)
+```
+
+### Scatter plot - Sale Price v/s Mileage by Price Category
+
+The scatter plot explains the relationship between variables "SalePrice" and "Mileage", bifurcated on the basis of "PriceCategory". Cars with higher mileage tend to have lower sale prices, but some high-mileage cars continue to cost more, probably due to higher prestige rating or brand value.
+
+```{r}
+D6 <- ggplot(car_data_final, aes(x = Mileage, y = SalePrice, color = Price_Category)) +
+    geom_point(size = 2.5, alpha = 0.7) +
+    labs(
+        title = "Sale Price v/s Mileage",
+        subtitle = "Segregated by Price range",
+        x = "Mileage",
+        y = "Sale Price (Units)"
+    ) +
+    scale_color_manual(values = c("Low" = "red", "Medium" = "orange", "High" = "green"))
+print(D6)
+```
+
+### Range of Fuel Efficiency with respect to Manufacturer
+
+The boxplots below compares Fuel Efficiency of cars across manufacturers. The fuel efficiencies of Audi and Toyota have a higher median value, which suggests that their cars are the most efficient when it comes to fuel consumption. Mercedes cars are on the other side of the spectrum.
+
+```{r}
+D7 <- ggplot(car_data_final, aes(
+    x = reorder(Manufacturer, FuelEfficiency, median),
+    y = FuelEfficiency,
+    fill = Manufacturer
+)) +
+    geom_boxplot() +
+    labs(
+        title = " Boxplot of Fuel Efficiencies",
+        x = "Manufacturer",
+        y = "Fuel Efficiency"
+    ) +
+    scale_fill_brewer(palette = "Set2") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = "none"
+    )
+print(D7)
+```
+
+### Average Sale Price in comparison with Car Age
+
+The line chart indicates that "young" cars are higher priced, as expected. The sale price drops steeply after the 10-year mark, which signals drastic depreciation of commodity value.
+
+```{r fig.width=5, fig.height=3}
+D8 <- car_data_final %>%
+    group_by(Car_Age) %>%
+    summarise(
+        Avg_SalePrice = mean(SalePrice),
+        .groups = "drop"
+    ) %>%
+    ggplot(aes(x = Car_Age, y = Avg_SalePrice)) +
+    geom_line(color = "blue", size = 1) +
+    geom_point(color = "red") +
+    labs(
+        title = "Average Sale Price v/s Car Age",
+        subtitle = "Linear relationship",
+        x = "Car Age (Years)",
+        y = "Average Sale Price (Units)"
+    )
+print(D8)
+```
+
+### Heatmap - Average Sale Price by Manufacturer and Car Age
+
+The heatmap visualizes the average Sale price of cars concerning age and make. Toyota and Tesla cars seem to retain much of their worth through out their functioning, while Mercedes and BMW tend to quickly lose their value with time.
+
+```{r}
+D9 <- car_data_final %>%
+    group_by(Manufacturer, Car_Age) %>%
+    summarise(
+        Avg_SalePrice = mean(SalePrice),
+        .groups       = "drop"
+    ) %>%
+    ggplot(aes(
+        x    = Car_Age,
+        y    = Manufacturer,
+        fill = Avg_SalePrice
+    )) +
+    geom_tile() +
+    scale_fill_viridis_c(
+        option    = "plasma",   
+        direction = -1,         
+        name      = "Avg Sale Price ($)"
+    ) +
+    labs(
+        title    = "Average Sale Price by Manufacturer & Car Age",
+        x        = "Car Age (Years)",
+        y        = "Manufacturer",
+        fill     = "Avg Sale Price (Units)"
+    )
+print(D9)
+```
+
+### Bar Chart of Average Prestige Ratings with regards to Manufacturer & Fuel efficiency category
+
+The grouped bar chart compares average prestige ratings of different manufacturers, grouped on the basis of Fuel efficiency category. Across different categories, Toyota and Tesla cars have higher prestige ratings compared to other manufacturers, while Audi and BMW have poor ratings in general.
+
+```{r}
+D10 <- car_data_final %>%
+    group_by(Manufacturer, FuelEfficiency_Category) %>%
+    summarise(Avg_PrestigeRating = mean(PrestigeRating), .groups = "drop") %>%
+    ggplot(aes(x = Manufacturer, y = Avg_PrestigeRating, fill = FuelEfficiency_Category)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    labs(
+        title = "Average Prestige Rating by Manufacturer ",
+        x = "Manufacturer",
+        y = "Average Prestige Rating"
+    ) +
+    scale_fill_manual(values = c("Low" = "red", "Medium" = "orange", "High" = "green")) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+print(D10)
+```
+
+### Histogram - Sale Price Distribution v/s Fuel Efficiency Category
+
+This graph clearly explains that cars with higher fuel efficiency have a higher price bracket. It can be inferred that fuel efficiency drives sale prices of cars.
+
+```{r fig.width=5.35, fig.height=2.95}
+D11 <- ggplot(car_data_final, aes(x = SalePrice, fill = FuelEfficiency_Category)) +
+    geom_histogram(binwidth = 1000, position = "dodge") +
+    labs(
+        title = "Sale Price Distribution",
+        subtitle = "Histogram Showing Price Spread",
+        x = "Sale Price (Units)",
+        y = "Count of Cars"
+    ) +
+    scale_fill_manual(values = c("Low" = "red", "Medium" = "orange", "High" = "green")) +
+    coord_cartesian(ylim = c(0, 60))
+print(D11)
+```
+
+### Scatter Plot - Efficiency-Price Ratio v/s Sale Price
+
+Higher Efficiency-Price Ratio signifies more cost-effective cars. This means that cars with an higher ratio have better fuel efficiency per unit of money spent.
+
+```{r fig.width=5, fig.height=3}
+D12 <- ggplot(car_data_final, aes(x = EfficiencyPrice_Ratio, y = SalePrice, color = Manufacturer)) +
+    geom_point(size = 2, alpha = 0.7) +
+    labs(
+        title = "Efficiency-Price Ratio vs. Sale Price",
+        x = "Efficiency-Price Ratio",
+        y = "Sale Price (Units)"
+    ) +
+    scale_color_brewer(palette = "Set2")
+print(D12)
+```
+
+### Summary Statistics of KPI's with Confidence Intervals for Sale Price
+
+Toyota cars have the highest sale value across all of their different models while also having strong fuel efficiencies and prestige ratings. Mercedes suffers from low prestige rating, which result in sub-par sale prices. The wide variation in confidence intervals for BMW and Mercedes denotes that the car prices in these brands vary more. This fluctuation in price also supports the fact that the value of these cars can be a bit unpredictable.
+
+```{r}
+summary_statistics <- car_data_final %>%
+  group_by(Manufacturer) %>%
+  summarise(
+    Avg_SalePrice = round(mean(SalePrice), 2),
+    CI_Lower = round(t.test(SalePrice)$conf.int[1], 2),
+    CI_Upper = round(t.test(SalePrice)$conf.int[2], 2),
+    Avg_FuelEfficiency = round(mean(FuelEfficiency), 2),
+    Avg_PrestigeRating = round(mean(PrestigeRating), 2),
+    Avg_PricePerMile = round(mean(PricePerMile), 2),
+    Total_cars_sold = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(Total_cars_sold))
+
+# For displaying table in pdf
+knitr::kable(summary_statistics, caption = "Summary Statistics by Manufacturer") %>%
+  kable_styling(font_size = 6.5)
+```
+
+### Top Models by Manufacturer
+
+Quite surprisingly, it is a Mercedes car that has outranked other cars to claim top spot in fuel efficiency. Ford Fiesta seems to be the most popular car among customers, while the Toyota Camry has the highest sale price on average.
+
+```{r}
+top_cars <- car_data_final %>%
+    group_by(Manufacturer, Model) %>%
+    summarise(
+        Total_Sales = n(),
+        Avg_SalePrice = mean(SalePrice),
+        Avg_FuelEfficiency = round(mean(FuelEfficiency), 2),
+        .groups = "drop"
+    ) %>%
+    arrange(Manufacturer, desc(Total_Sales)) %>%
+    group_by(Manufacturer) %>%
+    slice_head(n = 1) %>%
+    ungroup()
+View(top_cars)
+
+# For displaying table in pdf
+knitr::kable(top_cars, caption = "Top cars by manufacturer")
+```
+
+# [Key Takeaways]{.underline}
+
+-   Ford is the most successful manufacturer, with sales totaling 177 cars. Ford Fiesta is the most popular choice among customers when it comes to purchasing a car.
+
+-   Cars with higher mileage tend to have lower sale prices, but some high-mileage cars continue to cost more, probably due to higher prestige rating or brand value.
+
+-   The sale price of cars drops steeply after the 10-year mark, which signals drastic depreciation of commodity value.
+
+-   The fuel efficiencies of Audi and Toyota are the highest among all manufacturers.
+
+-   Cars with higher fuel efficiency will have a higher price bracket, except for some instances.
+
+# [Recommendations]{.underline}
+
+1.  **Aggressive Pricing strategies ==\>** Pricing can remain to be competitive for mid-range and luxury cars, but be reduced for older models of Ford to offload stock with less demand.
+2.  **Targeting customer segments** ==\> The columns "Mileage Category**"** and "Price Category**"** can be used to segregate customers with different requirements. Tailor-made marketing campaigns can be effectively designed to attract each customer segment.
+3.  **Efficient Inventory Management** ==\> Cars such as the Ford Fiesta or the Honda CR V in the mid-range category seems to be the fastest moving commodity. Inventory stocking should be fine-tuned with respect to demand and supply.
+4.  **Focus on Sustainability** ==\> Promote and stock up on Eco-friendly models that offer more-than-average fuel efficiency. This can be used to fuel marketing campaigns that concentrate more on Efficiency-Price Ratio to appeal more to eco-conscious buyers.
